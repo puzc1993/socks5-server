@@ -1,0 +1,13 @@
+[package]
+name = "socks5_server"
+version = "0.1.0"
+authors = ["puzc <1327514378@qq.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "0.2.21", features = [ "full" ]}
+anyhow = "1.0.31"
+bytes = "0.5.4"
+clap = "2.33.1"
