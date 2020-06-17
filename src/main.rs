@@ -63,7 +63,7 @@ impl Socks5Server {
         Socks5Server { host, port }
     }
 
-    pub async fn listen(&self) -> Result<()> {
+    async fn listen(&self) -> Result<()> {
         let listen_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(self.host)), self.port);
         println!(
             "socks5 server listening on: {:?}:{}",
