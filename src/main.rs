@@ -247,7 +247,10 @@ pub mod socks5 {
                 let port: [u8; 2] = buffer[16..].try_into()?;
                 DSTAddrPort::Ipv6(addr, u16::from_be_bytes(port))
             }
-            _ => return Err(anyhow!("INVALID ADDRESS TYPE")),
+            _ => {
+                write_err_reply(stream, 0x08).await?;
+                return Err(anyhow!("INVALID ADDRESS TYPE"));
+            }
         };
         Ok(dst_addr)
     }
