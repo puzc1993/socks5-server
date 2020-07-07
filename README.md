@@ -1,6 +1,6 @@
 # A simple SOCKS5 server in RUST.
 
-# usage:
+## usage:
 ```
 socks5_server [OPTIONS]
 
