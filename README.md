@@ -1,6 +1,6 @@
-#A simple SOCKS5 server in RUST.
+# A simple SOCKS5 server in RUST.
 
-#usage:
+# usage:
 ```
 socks5_server [OPTIONS]
 
@@ -14,7 +14,7 @@ OPTIONS:
 
 ```
 
-##dependencies
+## dependencies
 * tokio
 * anyhow
 * bytes
