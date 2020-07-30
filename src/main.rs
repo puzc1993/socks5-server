@@ -66,7 +66,7 @@ impl Socks5Server {
     async fn listen(&self) -> Result<()> {
         let listen_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(self.host)), self.port);
         println!(
-            "socks5 server listening on: {:?}:{}",
+            "socks5 server listening at: {:?}:{}",
             listen_addr.ip(),
             listen_addr.port()
         );
@@ -95,7 +95,7 @@ pub mod socks5 {
     use bytes::{BufMut, BytesMut};
     use std::convert::TryInto;
     use std::net::SocketAddr::*;
-    use std::net::{Ipv4Addr, Ipv6Addr};
+    use std::net::{Ipv4Addr, Ipv6Addr, Shutdown};
     use tokio::io::{self, AsyncReadExt, AsyncWriteExt, ErrorKind::*};
     use tokio::net::TcpStream;
 
@@ -136,8 +136,10 @@ pub mod socks5 {
             return Err(anyhow!("INVALID PROTOCOL VERSION"));
         }
         let methods = buffer[1] as usize;
-        let mut buffer = Vec::with_capacity(methods);
-        let n = stream.read_buf(&mut buffer).await?;
+        let mut buffer = vec![0; methods];
+        let n = stream.read_exact(&mut buffer).await?;
+        // let mut buffer = Vec::with_capacity(methods);
+        // let n = stream.read_buf(&mut buffer).await?;
         assert_eq!(n, methods);
         Ok(buffer)
     }
@@ -167,12 +169,10 @@ pub mod socks5 {
             .iter()
             .find(|method| **method == SUPPORT_IDENTIFY_METHOD)
         {
-            let n = stream.write(&[0x05, 0xFF]).await?;
-            assert_eq!(n, 2);
+            stream.write_all(&[0x05, 0xFF]).await?;
             return Err(anyhow!("NO ACCEPTABLE METHODS"));
         }
-        let n = stream.write(&[0x05, SUPPORT_IDENTIFY_METHOD]).await?;
-        assert_eq!(n, 2);
+        stream.write_all(&[0x05, SUPPORT_IDENTIFY_METHOD]).await?;
 
         Ok(())
     }
@@ -231,8 +231,10 @@ pub mod socks5 {
                 let n = stream.read_exact(&mut buffer).await?;
                 assert_eq!(n, 1);
                 let domain_name_length = buffer[0] as usize;
-                let mut buffer = Vec::with_capacity(domain_name_length + 2);
-                let n = stream.read_buf(&mut buffer).await?;
+                let mut buffer = vec![0; domain_name_length + 2];
+                let n = stream.read_exact(&mut buffer).await?;
+                // let mut buffer = Vec::with_capacity(domain_name_length + 2);
+                // let n = stream.read_buf(&mut buffer).await?;
                 assert_eq!(n, domain_name_length + 2);
                 let domain_name = String::from_utf8(buffer[..domain_name_length].to_vec())?;
                 let port: [u8; 2] = buffer[domain_name_length..].try_into()?;
@@ -298,12 +300,12 @@ pub mod socks5 {
         };
         match dst_stream {
             Ok(mut dst_stream) => {
-                let dst_addr_port = dst_stream.peer_addr()?;
+                let dst_addr = dst_stream.peer_addr()?;
 
                 let mut buffer = BytesMut::with_capacity(10);
                 assert!(buffer.is_empty());
                 buffer.put_slice(&[0x05, 0x00, 0x00]);
-                match dst_addr_port {
+                match dst_addr {
                     V4(ipv4_addr) => {
                         buffer.put_u8(0x01);
                         buffer.put_slice(&ipv4_addr.ip().octets());
@@ -315,14 +317,18 @@ pub mod socks5 {
                         buffer.put_u16(ipv6_addr.port());
                     }
                 }
-                let buffer_len = buffer.len();
-                let n = stream.write(&buffer).await?;
-                assert_eq!(n, buffer_len);
+                // let buffer_len = buffer.len();
+                stream.write_all(&buffer).await?;
                 let (mut local_reader, mut local_writer) = stream.split();
                 let (mut dst_reader, mut dst_writer) = dst_stream.split();
                 let future_1 = io::copy(&mut local_reader, &mut dst_writer);
                 let future_2 = io::copy(&mut dst_reader, &mut local_writer);
-                tokio::try_join!(future_1, future_2)?;
+                let res = tokio::try_join!(future_1, future_2);
+                dst_stream.shutdown(Shutdown::Both)?;
+                stream.shutdown().await?;
+                if let Err(e) = res {
+                    return Err(e.into());
+                }
             }
             Err(err) => {
                 let err_code = match err.kind() {
@@ -343,8 +349,7 @@ pub mod socks5 {
 
     async fn write_err_reply(stream: &mut TcpStream, rsp: u8) -> Result<()> {
         let data = [0x05, rsp, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-        let n = stream.write(&data[..]).await?;
-        assert_eq!(n, 10);
+        stream.write_all(&data[..]).await?;
         Ok(())
     }
 }
