@@ -102,6 +102,7 @@ pub mod socks5 {
     const SUPPORT_IDENTIFY_METHOD: u8 = 0x00; // NO AUTHENTICATION REQUIRED
     const SUPPORT_REQUEST_CMD: u8 = 0x01; // CONNECT
 
+    #[derive(Debug)]
     enum DSTAddrPort {
         Ipv4([u8; 4], u16),
         Ipv6([u8; 16], u16),
@@ -331,6 +332,7 @@ pub mod socks5 {
                 }
             }
             Err(err) => {
+                eprintln!("Dial dst {:?} error: {}", dst_addr, err);
                 let err_code = match err.kind() {
                     NotFound | NotConnected => 0x03,
                     PermissionDenied => 0x02,
