@@ -171,9 +171,11 @@ pub mod socks5 {
             .find(|method| **method == SUPPORT_IDENTIFY_METHOD)
         {
             stream.write_all(&[0x05, 0xFF]).await?;
+            stream.flush().await?;
             return Err(anyhow!("NO ACCEPTABLE METHODS"));
         }
         stream.write_all(&[0x05, SUPPORT_IDENTIFY_METHOD]).await?;
+        stream.flush().await?;
 
         Ok(())
     }
@@ -211,6 +213,7 @@ pub mod socks5 {
         if buffer[1] != SUPPORT_REQUEST_CMD {
             // Command not supported
             write_err_reply(stream, 0x07).await?;
+            stream.flush().await?;
             return Err(anyhow!("INVALID REQUEST CMD"));
         }
         if buffer[2] != 0x00 {
@@ -252,6 +255,7 @@ pub mod socks5 {
             }
             _ => {
                 write_err_reply(stream, 0x08).await?;
+                stream.flush().await?;
                 return Err(anyhow!("INVALID ADDRESS TYPE"));
             }
         };
@@ -320,6 +324,7 @@ pub mod socks5 {
                 }
                 // let buffer_len = buffer.len();
                 stream.write_all(&buffer).await?;
+                stream.flush().await?;
                 let (mut local_reader, mut local_writer) = stream.split();
                 let (mut dst_reader, mut dst_writer) = dst_stream.split();
                 let future_1 = io::copy(&mut local_reader, &mut dst_writer);
@@ -352,6 +357,7 @@ pub mod socks5 {
     async fn write_err_reply(stream: &mut TcpStream, rsp: u8) -> Result<()> {
         let data = [0x05, rsp, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
         stream.write_all(&data[..]).await?;
+        stream.flush().await?;
         Ok(())
     }
 }
